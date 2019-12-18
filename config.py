@@ -2,5 +2,5 @@ host="localhost"
 user="root"
 passwd=""
 db="pickmeup"
-lng_clearance=0.5
-lat_clearance=0.5
+lng_clearance=.01 #1km
+lat_clearance=.01 #1km

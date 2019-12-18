@@ -9,6 +9,10 @@ app = Flask(__name__)
 
 
 def init_db():
+	db = MySQLdb.connect(host=config.host,user=config.user,passwd=config.passwd,db=config.db)
+	return db
+
+def init_d_dict():
 	db = MySQLdb.connect(host=config.host,user=config.user,passwd=config.passwd,db=config.db, cursorclass=MySQLdb.cursors.DictCursor)
 	return db
 
@@ -47,7 +51,7 @@ def add_user(firstname, lastname, phone, email, password):
 		return False
 
 	cur = db.cursor()
-	cur.execute("INSERT INTO accounts(firstname,lastname,phone,email,password) VALUES ('"+firstname+"','"+lastname+"',"+phone+",'"+email+"','"+password+"')")
+	cur.execute("INSERT INTO accounts(firstname,lastname,phone,email,password) VALUES ('"+firstname+"','"+lastname+"',"+str(phone)+",'"+email+"','"+password+"')")
 	db.commit()
 	db.close()
 	return True
@@ -75,6 +79,7 @@ def add_ride(driver_id, departure, from_lng, from_lat, to_lng, to_lat, fare, sea
 		return False
 
 	cur = db.cursor()
+
 	cur.execute("INSERT INTO rides(driver_id, departure, from_lng, from_lat, to_lng, to_lat, fare, seats_available, comment) VALUES ("+str(driver_id)+",'"+departure+"',"+str(from_lng)+",'"+str(from_lat)+"','"+str(to_lng)+"','"+str(to_lat)+"',"+str(fare)+","+str(seats_available)+",'"+comment+"')")
 	db.commit()
 	db.close()
@@ -98,13 +103,20 @@ def delete_ride(ride_id):
 
 
 def check_rides(departure, from_lng, from_lat, to_lng, to_lat):
-	db = init_db()
+	db = init_d_dict()
 	if (db == None):
 		return None
 
 	cur = db.cursor()
 
-	cur.execute("""SELECT * FROM rides INNER JOIN accounts ON accounts.id=rides.driver_id 
+	print("1")
+	print(type(from_lng))
+	print(datetime.datetime.strptime(departure, '%Y-%m-%d %H:%M:%S') - datetime.timedelta(hours=1))
+	print("2")
+
+	cur.execute("""SELECT accounts.id as driver_id, accounts.firstname, accounts.lastname, accounts.phone, accounts.email, accounts.car_type, accounts.color, accounts.plate,
+		 rides.id as ride_id, rides.departure, rides.from_lng, rides.from_lat, rides.to_lng, rides.to_lat, rides.fare, rides.seats_available, rides.comment 
+		 FROM rides INNER JOIN accounts ON accounts.id=rides.driver_id 
 		 WHERE departure >= %(min)s AND departure <= %(max)s 
 		AND from_lng >= %(min_from_lng)s AND from_lat >= %(min_from_lat)s AND from_lng <= %(max_from_lng)s AND from_lat <= %(max_from_lat)s
 		AND to_lng >= %(min_to_lng)s AND to_lat >= %(min_to_lat)s AND to_lng <= %(max_to_lng)s AND to_lat <= %(max_to_lat)s"""
@@ -116,6 +128,7 @@ def check_rides(departure, from_lng, from_lat, to_lng, to_lat):
 		,'max_to_lng': to_lng+config.lng_clearance,'max_to_lat': to_lat+config.lat_clearance})
 
 	rides = cur.fetchall()
+	print(rides)
 	db.close()
 
 	rides = list(rides)
@@ -129,11 +142,12 @@ def check_rides(departure, from_lng, from_lat, to_lng, to_lat):
 
 	return rides
 
-@app.route('/api/v1/login', methods=['GET'])
+@app.route('/api/v1/login', methods=['POST'])
 def login():
-	if request.method == 'GET':
+	if request.method == 'POST':
 		try:
-			received_data = json.loads(request.get_data())
+			received_data = request.form
+
 			user = get_user(received_data['email'],received_data['password'])
 			print(user)
 			if (user == None):
@@ -149,7 +163,8 @@ def login():
 def signup():
 	if request.method == 'POST':
 		try:
-			received_data = json.loads(request.get_data())
+			received_data = request.form
+
 			success = add_user(received_data['firstname'], received_data['lastname'], received_data['phone'], received_data['email'], received_data['password'])
 			return jsonify({"success":success})
 		except:
@@ -161,7 +176,8 @@ def signup():
 def update():
 	if request.method == 'POST':
 		try:
-			received_data = json.loads(request.get_data())
+			received_data = request.form
+
 			success = update_user(received_data['email'], received_data['car_type'], received_data['color'], received_data['plate'])
 			return jsonify({"success":success})
 		except:
@@ -172,12 +188,11 @@ def update():
 
 @app.route('/api/v1/add', methods=['POST'])
 def add():
-	received_data = json.loads(request.get_data())
-	#success = add_ride(received_data['driver_id'], received_data['departure'], received_data['from_lng'], received_data['from_lat'], received_data['to_lng'], received_data['to_lat'], received_data['fare'], received_data['seats_available'], received_data['comment'])
-	#print(success)
+	#print(request.form)
 	if request.method == 'POST':
 		try:
-			received_data = json.loads(request.get_data())
+			received_data = request.form
+
 			success = add_ride(received_data['driver_id'], received_data['departure'], received_data['from_lng'], received_data['from_lat'], received_data['to_lng'], received_data['to_lat'], received_data['fare'], received_data['seats_available'], received_data['comment'])
 			return jsonify({"success":success})
 		except:
@@ -189,7 +204,8 @@ def add():
 def delete():
 	if request.method == 'DELETE':
 		try:
-			received_data = json.loads(request.get_data())
+			received_data = request.form
+
 			success = delete_ride(received_data['id'])
 			return jsonify({"success":success})
 		except:
@@ -197,18 +213,16 @@ def delete():
 	else:
 		return jsonify({"success":False})
 
-@app.route('/api/v1/check', methods=['GET'])
+@app.route('/api/v1/check', methods=['POST'])
 def check():
-	if request.method == 'GET':
-		received_data = json.loads(request.get_data())
+	if request.method == 'POST':
 
 		#rides = check_rides(received_data['departure'], received_data['from_lng'], received_data['from_lat'], received_data['to_lng'], received_data['to_lat'])
-
-		#print(json.dumps(rides))
 		try:
-			received_data = json.loads(request.get_data())
+			received_data = request.form
+			print(received_data)
 			#user = get_user(received_data['email'],received_data['password'])
-			rides = check_rides(received_data['departure'], received_data['from_lng'], received_data['from_lat'], received_data['to_lng'], received_data['to_lat'])
+			rides = check_rides(received_data['departure'], float(received_data['from_lng']), float(received_data['from_lat']), float(received_data['to_lng']), float(received_data['to_lat']))
 			if (rides == None):
 				return jsonify({})
 
