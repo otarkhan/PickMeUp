@@ -1,0 +1,14 @@
+[Unit]
+Description=Ublocker admin
+After=network.target
+
+[Service]
+User=nobody
+Group=nobody
+WorkingDirectory=/home/ultimatecallbloc/devices/ublocker_server/admin
+#ExecStartPre=/bin/systemctl restart memcached.service
+#ExecStartPre=/bin/bash /home/ultimatecallbloc/devices/ublocker_server/admin/memcache.sh
+ExecStart=/usr/bin/gunicorn -w 3 -b 0.0.0.0:80 --chdir /root/PickMeUp_Server/ pickmeup:app
+
+[Install]
+WantedBy=multi-user.target

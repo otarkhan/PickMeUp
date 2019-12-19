@@ -101,6 +101,35 @@ def delete_ride(ride_id):
 	db.close()
 	return True
 
+def posted_trips(email):
+	db = init_d_dict()
+	if (db == None):
+		return None
+
+	cur = db.cursor()
+
+
+	cur.execute("""SELECT accounts.id as driver_id, accounts.firstname, accounts.lastname, accounts.phone, accounts.email, accounts.car_type, accounts.color, accounts.plate,
+		 rides.id as ride_id, rides.departure, rides.from_lng, rides.from_lat, rides.to_lng, rides.to_lat, rides.fare, rides.seats_available, rides.comment 
+		 FROM rides INNER JOIN accounts ON accounts.id=rides.driver_id 
+		 WHERE email = %(email)s"""
+
+		, {'email': email})
+
+	rides = cur.fetchall()
+
+	db.close()
+
+	rides = list(rides)
+
+	for ride in rides:
+		ride["departure"] = str(ride["departure"])
+		ride["from_lng"] = str(ride["from_lng"])
+		ride["from_lat"] = str(ride["from_lat"])
+		ride["to_lng"] = str(ride["to_lng"])
+		ride["to_lat"] = str(ride["to_lat"])
+
+	return rides
 
 def check_rides(departure, from_lng, from_lat, to_lng, to_lat):
 	db = init_d_dict()
@@ -226,15 +255,31 @@ def check():
 			if (rides == None):
 				return jsonify({})
 
-			return json.dumps(rides)
+			return ("{rides:"+json.dumps(rides)+"}")
 		except:
 			return jsonify({})
 	else:
 		return jsonify({})
 	
+@app.route('/api/v1/posted', methods=['POST'])
+def posted():
+	if request.method == 'POST':
+		try:
+			received_data = request.form
+			print(received_data)
+
+			rides = posted_trips(received_data['email'])
+			if (rides == None):
+				return jsonify({})
+
+			return ("{rides:"+json.dumps(rides)+"}")
+		except:
+			return jsonify({})
+	else:
+		return jsonify({})
 #@app.route('/api/v1/request', methods=['POST'])
 #def request():
 #	return jsonify({"authorized":True})
 
 
-app.run("0.0.0.0",debug = True,port=80)
+#app.run("0.0.0.0",debug = True,port=80)
